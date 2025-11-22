@@ -652,8 +652,11 @@ private fun AutoCheck(
                     if (!isKpjDetected) {
                         onAction(SiipBpjsAction.Failure)
                         onAction(SiipBpjsAction.Process)
+                        delay(10_000)
                         break
                     }
+
+                    delay(10_000)
 
                     kpjNumber = rawString
 
