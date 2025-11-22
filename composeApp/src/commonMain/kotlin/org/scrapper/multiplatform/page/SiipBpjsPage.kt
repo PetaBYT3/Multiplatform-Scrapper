@@ -46,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +70,13 @@ import com.multiplatform.webview.web.rememberWebViewState
 import com.valentinilk.shimmer.shimmer
 import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import org.scrapper.multiplatform.BackHandler
 import org.scrapper.multiplatform.action.SiipBpjsAction
@@ -573,6 +580,8 @@ private fun AutoCheck(
     state: (SiipBpjsState),
     onAction: (SiipBpjsAction) -> Unit
 ) {
+    val scope = remember { CoroutineScope(Dispatchers.IO + SupervisorJob()) }
+
     var kpjNumber by remember { mutableStateOf("") }
     var nikNumber by remember { mutableStateOf("") }
     var birthDate by remember { mutableStateOf("") }
@@ -581,117 +590,128 @@ private fun AutoCheck(
     var isKpjDetected by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.isStarted) {
-        if (!state.isStarted) return@LaunchedEffect
+        if (!state.isStarted) {
+            scope.coroutineContext.cancelChildren()
+            return@LaunchedEffect
+        }
 
-        for (rawString in state.rawList) {
+        scope.coroutineContext.cancelChildren()
 
-            while (true) {
-                kpjNumber = ""
-                nikNumber = ""
-                birthDate = ""
-                email = ""
+        scope.launch {
+            for (rawString in state.rawList) {
 
-                webViewNavigator.loadUrl(SiipBPJSInput)
-                waitWebViewToLoad(webViewState = webViewState)
+                while (true) {
+                    kpjNumber = ""
+                    nikNumber = ""
+                    birthDate = ""
+                    email = ""
 
-                val doneButton = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Sudah'))?.click();"
-                webViewNavigator.evaluateJavaScript(doneButton)
+                    webViewNavigator.loadUrl(SiipBPJSInput)
+                    waitWebViewToLoad(webViewState = webViewState)
 
-                delay(500)
+                    val doneButton = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Sudah'))?.click();"
+                    webViewNavigator.evaluateJavaScript(doneButton)
 
-                val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$rawString';"
-                webViewNavigator.evaluateJavaScript(kpjTextField)
+                    delay(500)
 
-                delay(500)
+                    val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$rawString';"
+                    webViewNavigator.evaluateJavaScript(kpjTextField)
 
-                val btnNext = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Lanjut'))?.click();"
-                webViewNavigator.evaluateJavaScript(btnNext)
+                    delay(500)
 
-                delay(500)
+                    val btnNext = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Lanjut'))?.click();"
+                    webViewNavigator.evaluateJavaScript(btnNext)
 
-                waitWebViewToLoad(webViewState = webViewState)
+                    delay(500)
 
-                val resultElement = "document.querySelector('.swal2-content').textContent;"
-                val resultDialog = webViewNavigator.awaitJavaScript(resultElement)
+                    waitWebViewToLoad(webViewState = webViewState)
 
-                if (resultDialog.contains("Terlalu banyak percobaan yang gagal dalam waktu singkat")) {
-                    onAction(SiipBpjsAction.MessageDialog(
-                        color = Warning,
-                        icon = Icons.Filled.RestartAlt,
-                        message = "Retrying..."
-                    ))
-                    continue
-                }
+                    val resultElement = "document.querySelector('.swal2-content').textContent;"
+                    val resultDialog = webViewNavigator.awaitJavaScript(resultElement)
 
-                val successDetection = "document.querySelector('.swal2-title').textContent;"
-                val successResult = webViewNavigator.awaitJavaScript(successDetection)
+                    if (resultDialog.contains("Terlalu banyak percobaan yang gagal dalam waktu singkat", ignoreCase = true)) {
+                        onAction(SiipBpjsAction.MessageDialog(
+                            color = Warning,
+                            icon = Icons.Filled.RestartAlt,
+                            message = "Retrying..."
+                        ))
+                        continue
+                    }
 
-                delay(500)
+                    val successDetection = "document.querySelector('.swal2-title').textContent;"
+                    val successResult = webViewNavigator.awaitJavaScript(successDetection)
 
-                if (successResult.contains("Berhasil!")) {
-                    isKpjDetected = true
-                } else {
-                    isKpjDetected = false
-                }
+                    delay(500)
 
-                if (!isKpjDetected) {
-                    onAction(SiipBpjsAction.Failure)
+                    if (successResult.contains("Berhasil!", ignoreCase = true)) {
+                        isKpjDetected = true
+                    } else {
+                        isKpjDetected = false
+                    }
+
+                    if (!isKpjDetected) {
+                        onAction(SiipBpjsAction.Failure)
+                        onAction(SiipBpjsAction.Process)
+                        break
+                    }
+
+                    kpjNumber = rawString
+
+                    val continueButton = "document.querySelector('.swal2-confirm').click();"
+                    webViewNavigator.awaitJavaScript(continueButton)
+
+                    delay(500)
+
+                    waitWebViewToLoad(webViewState = webViewState)
+
+                    val nikElement = "document.getElementById('no_identitas').value;"
+                    val nikResult = webViewNavigator.awaitJavaScript(nikElement)
+
+                    val removedQuoteNik = removeDoubleQuote(nikResult)
+                    nikNumber = removedQuoteNik
+
+                    val birthDateElement = "document.getElementById('tgl_lahir').value;"
+                    val birthDateResult = webViewNavigator.awaitJavaScript(birthDateElement)
+
+                    val removedQuoteBirthDate = removeDoubleQuote(birthDateResult)
+                    birthDate = removedQuoteBirthDate
+
+                    val emailElement = "document.getElementById('email').value;"
+                    val emailResult = webViewNavigator.awaitJavaScript(emailElement)
+
+                    val removedQuoteEmail = removeDoubleQuote(emailResult)
+                    if (state.getGmail) {
+                        email = removedQuoteEmail
+                    } else {
+                        if (removedQuoteEmail.contains("@gmail.com", ignoreCase = true)) {
+                            email = ""
+                        } else {
+                            email = removedQuoteEmail
+                        }
+                    }
+
+                    delay(500)
+
+                    val result = SiipResult(
+                        kpjNumber = kpjNumber,
+                        fullName = "",
+                        nikNumber = nikNumber,
+                        birthDate = birthDate,
+                        email = email
+                    )
+
+                    onAction(SiipBpjsAction.AddResult(result = result))
+                    onAction(SiipBpjsAction.Success)
                     onAction(SiipBpjsAction.Process)
                     break
                 }
-
-                kpjNumber = rawString
-
-                val continueButton = "document.querySelector('.swal2-confirm').click();"
-                webViewNavigator.awaitJavaScript(continueButton)
-
-                delay(500)
-
-                waitWebViewToLoad(webViewState = webViewState)
-
-                val nikElement = "document.getElementById('no_identitas').value;"
-                val nikResult = webViewNavigator.awaitJavaScript(nikElement)
-
-                val removedQuoteNik = removeDoubleQuote(nikResult)
-                nikNumber = removedQuoteNik
-
-                val birthDateElement = "document.getElementById('tgl_lahir').value;"
-                val birthDateResult = webViewNavigator.awaitJavaScript(birthDateElement)
-
-                val removedQuoteBirthDate = removeDoubleQuote(birthDateResult)
-                birthDate = removedQuoteBirthDate
-
-                val emailElement = "document.getElementById('email').value;"
-                val emailResult = webViewNavigator.awaitJavaScript(emailElement)
-
-                val removedQuoteEmail = removeDoubleQuote(emailResult)
-                if (state.getGmail) {
-                    email = removedQuoteEmail
-                } else {
-                    if (removedQuoteEmail.contains("@gmail.com", ignoreCase = true)) {
-                        email = ""
-                    } else {
-                        email = removedQuoteEmail
-                    }
-                }
-
-                delay(500)
-
-                val result = SiipResult(
-                    kpjNumber = kpjNumber,
-                    fullName = "",
-                    nikNumber = nikNumber,
-                    birthDate = birthDate,
-                    email = email
-                )
-
-                onAction(SiipBpjsAction.AddResult(result = result))
-                onAction(SiipBpjsAction.Success)
-                onAction(SiipBpjsAction.Process)
-                break
             }
+            onAction(SiipBpjsAction.IsStarted)
         }
-        onAction(SiipBpjsAction.IsStarted)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { scope.cancel() }
     }
 }
 

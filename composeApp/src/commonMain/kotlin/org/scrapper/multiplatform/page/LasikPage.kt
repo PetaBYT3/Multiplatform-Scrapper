@@ -43,8 +43,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,7 +65,13 @@ import com.multiplatform.webview.web.rememberWebViewState
 import com.valentinilk.shimmer.shimmer
 import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import org.scrapper.multiplatform.BackHandler
 import org.scrapper.multiplatform.action.DptAction
@@ -506,14 +514,22 @@ private fun AutoCheck(
     state: LasikState,
     onAction: (LasikAction) -> Unit
 ) {
+    val scope = remember { CoroutineScope(Dispatchers.IO + SupervisorJob()) }
+
     LaunchedEffect(state.isStarted) {
-        if (!state.isStarted) return@LaunchedEffect
+        if (!state.isStarted) {
+            scope.coroutineContext.cancelChildren()
+            return@LaunchedEffect
+        }
+
+        scope.coroutineContext.cancelChildren()
 
         waitWebViewToLoad(webViewState)
 
-        for (rawString in state.rawList) {
+        scope.launch {
+            for (rawString in state.rawList) {
 
-            val nikElement = """
+                val nikElement = """
                 (function() {
                     var nikInput = document.querySelector('input[placeholder="Isi Nomor E-KTP"]');
                     if (nikInput) {
@@ -525,9 +541,9 @@ private fun AutoCheck(
                     return false;
                 })();
                 """.trimIndent()
-            webViewNavigator.awaitJavaScript(nikElement)
+                webViewNavigator.awaitJavaScript(nikElement)
 
-            val kpjElement = """
+                val kpjElement = """
                 (function() {
                     var kpjInput = document.querySelector('input[placeholder="Isi Nomor KPJ"]');
                     if (kpjInput) {
@@ -539,9 +555,9 @@ private fun AutoCheck(
                     return false;
                 })();
                 """.trimIndent()
-            webViewNavigator.awaitJavaScript(kpjElement)
+                webViewNavigator.awaitJavaScript(kpjElement)
 
-            val nameElement = """
+                val nameElement = """
                 (function() {
                     var namaInput = document.querySelector('input[placeholder="Isi Nama sesuai KTP"]');
                     if (namaInput) {
@@ -553,47 +569,52 @@ private fun AutoCheck(
                     return false;
                 })();
                 """.trimIndent()
-            webViewNavigator.awaitJavaScript(nameElement)
+                webViewNavigator.awaitJavaScript(nameElement)
 
-            delay(1000)
+                delay(1000)
 
-            val btnNextElement = """
+                val btnNextElement = """
                 Array.from(document.querySelectorAll('div.wizard-buttons button'))
                 .find(b => b.textContent.trim().includes('BERIKUTNYA'))?.click();
-            """.trimIndent()
-            webViewNavigator.awaitJavaScript(btnNextElement)
+                """.trimIndent()
+                webViewNavigator.awaitJavaScript(btnNextElement)
 
-            delay(2_500)
+                delay(2_500)
 
-            val resultElement = """
+                val resultElement = """
                 document.querySelector('.swal2-content').innerText;
-            """.trimIndent()
-            val resultDetection = removeDoubleQuote(webViewNavigator.awaitJavaScript(resultElement))
+                """.trimIndent()
+                val resultDetection = removeDoubleQuote(webViewNavigator.awaitJavaScript(resultElement))
 
-            onAction(LasikAction.JsResult(resultDetection))
+                onAction(LasikAction.JsResult(resultDetection))
 
-            if (resultDetection.contains("JMO")) {
-                onAction(LasikAction.Process)
-                onAction(LasikAction.Success)
-            } else {
-                onAction(LasikAction.Process)
-                onAction(LasikAction.Failure)
-                continue
+                if (resultDetection.contains("JMO")) {
+                    onAction(LasikAction.Process)
+                    onAction(LasikAction.Success)
+                } else {
+                    onAction(LasikAction.Process)
+                    onAction(LasikAction.Failure)
+                    continue
+                }
+
+                val result = LasikResult(
+                    kpjNumber = rawString.kpjNumber,
+                    nikNumber = rawString.nikNumber,
+                    fullName = rawString.fullName,
+                    birthDate = rawString.birthDate,
+                    email = rawString.email,
+                    regencyName = rawString.regencyName,
+                    subdistrictName = rawString.subdistrictName,
+                    wardName = rawString.wardName,
+                    lasikResult = "Berhasil"
+                )
+                onAction(LasikAction.AddResult(result))
             }
-
-            val result = LasikResult(
-                kpjNumber = rawString.kpjNumber,
-                nikNumber = rawString.nikNumber,
-                fullName = rawString.fullName,
-                birthDate = rawString.birthDate,
-                email = rawString.email,
-                regencyName = rawString.regencyName,
-                subdistrictName = rawString.subdistrictName,
-                wardName = rawString.wardName,
-                lasikResult = "Berhasil"
-            )
-            onAction(LasikAction.AddResult(result))
+            onAction(LasikAction.IsStarted)
         }
-        onAction(LasikAction.IsStarted)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { scope.cancel() }
     }
 }
