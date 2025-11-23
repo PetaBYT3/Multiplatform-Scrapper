@@ -37,4 +37,6 @@ sealed interface SiipBpjsAction {
 
     data object SettingsBottomSheet: SiipBpjsAction
 
+    data class Debugging(val message: String): SiipBpjsAction
+
 }

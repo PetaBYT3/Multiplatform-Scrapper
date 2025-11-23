@@ -161,7 +161,8 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Speed Runner"
             packageVersion = "1.0.0"
-            copyright = "© 2025 Andrea Hussanini (andreahussanini@gmail.com)"
+            group = "Andrea Hussanini (andreahussanini.2103@gmail.com)"
+            copyright = "© 2025 Andrea Hussanini (andreahussanini.2103@gmail.com)"
 
             windows {
                 shortcut = true

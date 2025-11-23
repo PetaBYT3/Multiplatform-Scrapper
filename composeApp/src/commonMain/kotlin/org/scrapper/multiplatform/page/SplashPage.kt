@@ -1,5 +1,7 @@
 package org.scrapper.multiplatform.page
 
+import `andrea hussanini (andreahussanini`.`2103@gmail`.`com)`.composeapp.generated.resources.Res
+import `andrea hussanini (andreahussanini`.`2103@gmail`.`com)`.composeapp.generated.resources.speed_runner
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,8 +27,6 @@ import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.scrapper.multiplatform.route.Route
 import org.scrapper.multiplatform.viewmodel.SplashViewModel
-import scrappermultiplatform.composeapp.generated.resources.Res
-import scrappermultiplatform.composeapp.generated.resources.speed_runner
 
 @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable

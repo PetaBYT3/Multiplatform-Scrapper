@@ -40,6 +40,8 @@ data class SiipBpjsState(
     val getGmail: Boolean = true,
     val getYmail: Boolean = true,
 
-    val settingsBottomSheet: Boolean = false
+    val settingsBottomSheet: Boolean = false,
+
+    val debugging: String = ""
 
 )

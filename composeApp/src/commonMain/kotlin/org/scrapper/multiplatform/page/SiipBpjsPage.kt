@@ -551,6 +551,7 @@ private fun Content(
                 )
             }
         }
+        Text(text = state.debugging)
         VerticalSpacer(10)
     }
 }
@@ -611,16 +612,19 @@ private fun AutoCheck(
 
                     val doneButton = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Sudah'))?.click();"
                     webViewNavigator.evaluateJavaScript(doneButton)
+                    onAction(SiipBpjsAction.Debugging("Klik Tombol Sudah"))
 
                     delay(500)
 
                     val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$rawString';"
                     webViewNavigator.evaluateJavaScript(kpjTextField)
+                    onAction(SiipBpjsAction.Debugging("Input KPJ"))
 
                     delay(500)
 
                     val btnNext = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Lanjut'))?.click();"
                     webViewNavigator.evaluateJavaScript(btnNext)
+                    onAction(SiipBpjsAction.Debugging("Klik Tombol Lanjut"))
 
                     delay(500)
 
@@ -635,11 +639,14 @@ private fun AutoCheck(
                             icon = Icons.Filled.RestartAlt,
                             message = "Retrying..."
                         ))
+                        onAction(SiipBpjsAction.Debugging("Coldown Terdeteksi"))
                         continue
                     }
+                    onAction(SiipBpjsAction.Debugging("Coldown Tidak Terdeteksi"))
 
                     val successDetection = "document.querySelector('.swal2-title').textContent;"
                     val successResult = webViewNavigator.awaitJavaScript(successDetection)
+                    onAction(SiipBpjsAction.Debugging("Deteksi Hasil KPJ"))
 
                     delay(500)
 
@@ -652,20 +659,25 @@ private fun AutoCheck(
                     if (!isKpjDetected) {
                         onAction(SiipBpjsAction.Failure)
                         onAction(SiipBpjsAction.Process)
+                        onAction(SiipBpjsAction.Debugging("KPJ Gagal"))
                         delay(10_000)
                         break
                     }
 
+                    onAction(SiipBpjsAction.Debugging("KPJ Berhasil"))
                     delay(10_000)
 
                     kpjNumber = rawString
 
                     val continueButton = "document.querySelector('.swal2-confirm').click();"
                     webViewNavigator.awaitJavaScript(continueButton)
+                    onAction(SiipBpjsAction.Debugging("Klik Tombol Konfirmasi"))
 
                     delay(500)
 
                     waitWebViewToLoad(webViewState = webViewState)
+
+                    onAction(SiipBpjsAction.Debugging("Mengekstrak Data"))
 
                     val nikElement = "document.getElementById('no_identitas').value;"
                     val nikResult = webViewNavigator.awaitJavaScript(nikElement)

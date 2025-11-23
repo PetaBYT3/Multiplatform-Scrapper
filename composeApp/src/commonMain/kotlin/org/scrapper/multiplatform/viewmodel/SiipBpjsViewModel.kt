@@ -117,6 +117,9 @@ class SiipBpjsViewModel(
             SiipBpjsAction.SettingsBottomSheet -> {
                 _state.update { it.copy(settingsBottomSheet = !it.settingsBottomSheet) }
             }
+            is SiipBpjsAction.Debugging -> {
+                _state.update { it.copy(debugging = action.message) }
+            }
         }
     }
 }
