@@ -7,6 +7,8 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
 import androidx.navigation.NavHostController
 import com.russhwolf.settings.ObservableSettings
 import com.russhwolf.settings.SharedPreferencesSettings
@@ -362,5 +364,16 @@ actual fun saveFile(fileName: String, fileBytes: ByteArray, filePath: String) {
 actual fun BackHandler(enabled: Boolean, onBack: () -> Unit) {
     BackHandler(enabled = enabled) {
         onBack()
+    }
+}
+
+@Composable
+actual fun KeepScreenOn(enabled: Boolean) {
+    val view = LocalView.current
+
+    DisposableEffect(enabled) {
+        view.keepScreenOn = enabled
+
+        onDispose { view.keepScreenOn = false }
     }
 }

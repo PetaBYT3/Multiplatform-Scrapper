@@ -9,15 +9,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 
 suspend fun waitWebViewToLoad(
-    webViewState: WebViewState
-) {
-    delay(500)
-    snapshotFlow { webViewState.loadingState }
-        .filterIsInstance<LoadingState.Finished>()
-        .first()
-    delay(500)
+    webViewState: WebViewState,
+    timeoutMills: Long = 5_000
+): Boolean {
+    val result = withTimeoutOrNull(timeoutMills) {
+        delay(500)
+        snapshotFlow { webViewState.loadingState }
+            .filterIsInstance<LoadingState.Finished>()
+            .first()
+        delay(500)
+        true
+    }
+
+    return result != null
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

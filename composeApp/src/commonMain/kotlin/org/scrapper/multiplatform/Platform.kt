@@ -36,3 +36,6 @@ expect fun saveFile(fileName: String, fileBytes: ByteArray, filePath: String)
 
 @Composable
 expect fun BackHandler(enabled: Boolean, onBack: () -> Unit)
+
+@Composable
+expect fun KeepScreenOn(enabled: Boolean)

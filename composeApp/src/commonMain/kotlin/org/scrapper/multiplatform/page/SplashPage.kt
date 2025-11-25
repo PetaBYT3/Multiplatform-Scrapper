@@ -1,7 +1,5 @@
 package org.scrapper.multiplatform.page
 
-import `andrea hussanini (andreahussanini`.`2103@gmail`.`com)`.composeapp.generated.resources.Res
-import `andrea hussanini (andreahussanini`.`2103@gmail`.`com)`.composeapp.generated.resources.speed_runner
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -64,13 +62,13 @@ fun SplashPage(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    modifier = Modifier
-                        .size(110.dp)
-                        .clip(RoundedCornerShape(50)),
-                    painter = painterResource(Res.drawable.speed_runner),
-                    contentDescription = null
-                )
+//                Image(
+//                    modifier = Modifier
+//                        .size(110.dp)
+//                        .clip(RoundedCornerShape(50)),
+//                    painter = painterResource(Res.drawable.speed_runner),
+//                    contentDescription = null
+//                )
             }
         }
     )

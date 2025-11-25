@@ -391,3 +391,8 @@ actual fun BackHandler(enabled: Boolean, onBack: () -> Unit) {
         }
     }
 }
+
+@Composable
+actual fun KeepScreenOn(enabled: Boolean) {
+
+}

@@ -92,8 +92,8 @@ class LasikViewModel: ViewModel() {
                 }
             }
 
-            is LasikAction.JsResult -> {
-                _state.update { it.copy(jsResultState = action.result) }
+            is LasikAction.Debugging -> {
+                _state.update { it.copy(debugging = action.result) }
             }
         }
     }

@@ -48,6 +48,10 @@ fun getWardName(string: String) : String {
     return wardName
 }
 
+fun quoteSafeString(string: String) : String {
+    return string.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
+}
+
 fun getCurrentTime() : String {
     val currentDateTime = LocalDateTime.now()
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm-ss")

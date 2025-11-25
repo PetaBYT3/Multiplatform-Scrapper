@@ -29,6 +29,6 @@ sealed interface LasikAction {
 
     data class MessageDialog(val color: Color ,val icon: ImageVector, val message: String) : LasikAction
 
-    data class JsResult(val result: String) : LasikAction
+    data class Debugging(val result: String) : LasikAction
 
 }

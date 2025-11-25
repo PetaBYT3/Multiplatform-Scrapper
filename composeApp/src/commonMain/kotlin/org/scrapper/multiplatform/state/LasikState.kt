@@ -35,5 +35,5 @@ data class LasikState(
     val iconDialog: ImageVector = Icons.Filled.Warning,
     val messageDialog: String = "",
 
-    val jsResultState: String = ""
+    val debugging: String = ""
 )

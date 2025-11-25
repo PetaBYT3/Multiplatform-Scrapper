@@ -49,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -87,6 +88,7 @@ import org.scrapper.multiplatform.extension.SiipBPJSLoginUrl
 import org.scrapper.multiplatform.extension.awaitJavaScript
 import org.scrapper.multiplatform.extension.getCurrentTime
 import org.scrapper.multiplatform.extension.jvmPlatformId
+import org.scrapper.multiplatform.extension.quoteSafeString
 import org.scrapper.multiplatform.extension.removeDoubleQuote
 import org.scrapper.multiplatform.extension.siipPath
 import org.scrapper.multiplatform.extension.waitWebViewToLoad
@@ -193,8 +195,6 @@ private fun Scaffold(
     state: (SiipBpjsState),
     onAction: (SiipBpjsAction) -> Unit
 ) {
-    val webViewNavigator = rememberWebViewNavigator()
-
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
@@ -202,7 +202,6 @@ private fun Scaffold(
         topBar = {
             TopBar(
                 navController = navController,
-                webViewNavigator = webViewNavigator,
                 state = state,
                 onAction = onAction
             )
@@ -214,7 +213,6 @@ private fun Scaffold(
                     .padding(innerPadding)
             ) {
                 Content(
-                    webViewNavigator = webViewNavigator,
                     state = state,
                     onAction = onAction,
                 )
@@ -227,7 +225,6 @@ private fun Scaffold(
 @Composable
 private fun TopBar(
     navController: NavController,
-    webViewNavigator: WebViewNavigator,
     state: (SiipBpjsState),
     onAction: (SiipBpjsAction) -> Unit
 ) {
@@ -252,10 +249,6 @@ private fun TopBar(
         actions = {
             Row() {
                 CustomIconButton(
-                    imageVector = Icons.Filled.RestartAlt,
-                    onClick = { webViewNavigator.loadUrl(SiipBPJSLoginUrl) }
-                )
-                CustomIconButton(
                     imageVector = Icons.Filled.QuestionMark,
                     onClick = { onAction(SiipBpjsAction.QuestionBottomSheet) }
                 )
@@ -266,7 +259,6 @@ private fun TopBar(
 
 @Composable
 private fun Content(
-    webViewNavigator: WebViewNavigator,
     state: (SiipBpjsState),
     onAction: (SiipBpjsAction) -> Unit
 ) {
@@ -276,20 +268,12 @@ private fun Content(
             onAction(SiipBpjsAction.XlsxFile(uri))
         }
     )
-    val webState = rememberWebViewState(SiipBPJSLoginUrl)
 
     val webViewModifier =
         if (state.settingsBottomSheet || state.questionBottomSheet)
             Modifier.size(0.dp)
         else
             Modifier.fillMaxSize()
-
-    LaunchedEffect(Unit) {
-        webState.webSettings.apply {
-            isJavaScriptEnabled = true
-            customUserAgentString = webUserAgent
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -303,6 +287,14 @@ private fun Content(
             Box(
                 modifier = if (platformId == jvmPlatformId) webViewModifier else Modifier.fillMaxSize()
             ) {
+                val webState = rememberWebViewState(SiipBPJSLoginUrl)
+                val webViewNavigator = rememberWebViewNavigator()
+                LaunchedEffect(Unit) {
+                    webState.webSettings.apply {
+                        isJavaScriptEnabled = true
+                        customUserAgentString = webUserAgent
+                    }
+                }
                 WebView(
                     modifier = Modifier
                         .fillMaxSize(),
@@ -332,9 +324,9 @@ private fun Content(
                                 filePath = siipPath
                             )
                             onAction(SiipBpjsAction.MessageDialog(
-                            color = Success,
-                            icon = Icons.Filled.Check,
-                            message = "File Saved !"
+                                color = Success,
+                                icon = Icons.Filled.Check,
+                                message = "File Saved !"
                             ))
                         }
                     }
@@ -557,24 +549,6 @@ private fun Content(
 }
 
 @Composable
-private fun LoginDetection(
-    webViewNavigator: WebViewNavigator,
-    state: (SiipBpjsState),
-    onAction: (SiipBpjsAction) -> Unit
-) {
-    val loggedDetection = "document.getElementById('form-login') != null"
-    webViewNavigator.evaluateJavaScript(script = loggedDetection) {
-        onAction(SiipBpjsAction.IsLoggedIn(it.toBoolean()))
-    }
-    LaunchedEffect(state.isLoggedIn) {
-        if (state.isLoggedIn) {
-            webViewNavigator.loadUrl("https://sipp.bpjsketenagakerjaan.go.id/tenaga-kerja/baru/form-tambah-tk-individu")
-        }
-        delay(1000)
-    }
-}
-
-@Composable
 private fun AutoCheck(
     webViewNavigator: WebViewNavigator,
     webViewState: WebViewState,
@@ -582,6 +556,8 @@ private fun AutoCheck(
     onAction: (SiipBpjsAction) -> Unit
 ) {
     val scope = remember { CoroutineScope(Dispatchers.IO + SupervisorJob()) }
+
+    val isTesting = true
 
     var kpjNumber by remember { mutableStateOf("") }
     var nikNumber by remember { mutableStateOf("") }
@@ -600,7 +576,6 @@ private fun AutoCheck(
 
         scope.launch {
             for (rawString in state.rawList) {
-
                 while (true) {
                     kpjNumber = ""
                     nikNumber = ""
@@ -608,31 +583,37 @@ private fun AutoCheck(
                     email = ""
 
                     webViewNavigator.loadUrl(SiipBPJSInput)
-                    waitWebViewToLoad(webViewState = webViewState)
+                    val preloadWeb = waitWebViewToLoad(webViewState = webViewState)
+                    if (!preloadWeb) {
+                        onAction(SiipBpjsAction.MessageDialog(
+                            color = Warning,
+                            icon = Icons.Filled.RestartAlt,
+                            message = "Web Fail To Load !"
+                        ))
+                        continue
+                    }
 
                     val doneButton = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Sudah'))?.click();"
                     webViewNavigator.evaluateJavaScript(doneButton)
                     onAction(SiipBpjsAction.Debugging("Klik Tombol Sudah"))
 
-                    delay(500)
+                    if (!isTesting) delay(500)
 
-                    val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$rawString';"
+                    val quoteSafeKpj = quoteSafeString(rawString)
+                    val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$quoteSafeKpj';"
                     webViewNavigator.evaluateJavaScript(kpjTextField)
                     onAction(SiipBpjsAction.Debugging("Input KPJ"))
 
-                    delay(500)
+                    if (!isTesting) delay(500)
 
                     val btnNext = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Lanjut'))?.click();"
                     webViewNavigator.evaluateJavaScript(btnNext)
                     onAction(SiipBpjsAction.Debugging("Klik Tombol Lanjut"))
 
-                    delay(500)
-
-                    waitWebViewToLoad(webViewState = webViewState)
+                    delay(5_000)
 
                     val resultElement = "document.querySelector('.swal2-content').textContent;"
                     val resultDialog = webViewNavigator.awaitJavaScript(resultElement)
-
                     if (resultDialog.contains("Terlalu banyak percobaan yang gagal dalam waktu singkat", ignoreCase = true)) {
                         onAction(SiipBpjsAction.MessageDialog(
                             color = Warning,
@@ -642,13 +623,12 @@ private fun AutoCheck(
                         onAction(SiipBpjsAction.Debugging("Coldown Terdeteksi"))
                         continue
                     }
-                    onAction(SiipBpjsAction.Debugging("Coldown Tidak Terdeteksi"))
 
+                    onAction(SiipBpjsAction.Debugging("Deteksi Hasil KPJ"))
                     val successDetection = "document.querySelector('.swal2-title').textContent;"
                     val successResult = webViewNavigator.awaitJavaScript(successDetection)
-                    onAction(SiipBpjsAction.Debugging("Deteksi Hasil KPJ"))
 
-                    delay(500)
+                    if (!isTesting) delay(10_000)
 
                     if (successResult.contains("Berhasil!", ignoreCase = true)) {
                         isKpjDetected = true
@@ -660,12 +640,10 @@ private fun AutoCheck(
                         onAction(SiipBpjsAction.Failure)
                         onAction(SiipBpjsAction.Process)
                         onAction(SiipBpjsAction.Debugging("KPJ Gagal"))
-                        delay(10_000)
                         break
                     }
 
                     onAction(SiipBpjsAction.Debugging("KPJ Berhasil"))
-                    delay(10_000)
 
                     kpjNumber = rawString
 
@@ -673,28 +651,32 @@ private fun AutoCheck(
                     webViewNavigator.awaitJavaScript(continueButton)
                     onAction(SiipBpjsAction.Debugging("Klik Tombol Konfirmasi"))
 
-                    delay(500)
-
-                    waitWebViewToLoad(webViewState = webViewState)
+                    val loadDataWeb = waitWebViewToLoad(webViewState = webViewState)
+                    if (!loadDataWeb) {
+                        onAction(SiipBpjsAction.MessageDialog(
+                            color = Warning,
+                            icon = Icons.Filled.RestartAlt,
+                            message = "Web Fail To Load !"
+                        ))
+                        continue
+                    }
 
                     onAction(SiipBpjsAction.Debugging("Mengekstrak Data"))
 
                     val nikElement = "document.getElementById('no_identitas').value;"
                     val nikResult = webViewNavigator.awaitJavaScript(nikElement)
-
                     val removedQuoteNik = removeDoubleQuote(nikResult)
                     nikNumber = removedQuoteNik
 
                     val birthDateElement = "document.getElementById('tgl_lahir').value;"
                     val birthDateResult = webViewNavigator.awaitJavaScript(birthDateElement)
-
                     val removedQuoteBirthDate = removeDoubleQuote(birthDateResult)
                     birthDate = removedQuoteBirthDate
 
                     val emailElement = "document.getElementById('email').value;"
                     val emailResult = webViewNavigator.awaitJavaScript(emailElement)
-
                     val removedQuoteEmail = removeDoubleQuote(emailResult)
+
                     if (state.getGmail) {
                         email = removedQuoteEmail
                     } else {
@@ -704,8 +686,6 @@ private fun AutoCheck(
                             email = removedQuoteEmail
                         }
                     }
-
-                    delay(500)
 
                     val result = SiipResult(
                         kpjNumber = kpjNumber,

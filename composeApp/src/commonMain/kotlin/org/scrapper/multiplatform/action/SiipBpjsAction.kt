@@ -7,6 +7,8 @@ import org.scrapper.multiplatform.dataclass.SiipResult
 
 sealed interface SiipBpjsAction {
 
+    data object ResetWebViewStateKey: SiipBpjsAction
+
     data class IsLoggedIn(val isLoggedIn: Boolean) : SiipBpjsAction
 
     data object QuestionBottomSheet : SiipBpjsAction

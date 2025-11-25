@@ -12,6 +12,8 @@ data class SiipBpjsState(
 
     val isLoggedIn: Boolean = true,
 
+    val resetWebViewStateKey: Int = 0,
+
     val questionBottomSheet: Boolean = false,
 
     val extendedMenu: Boolean = false,

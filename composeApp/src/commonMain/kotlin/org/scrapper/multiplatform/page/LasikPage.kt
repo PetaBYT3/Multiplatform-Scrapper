@@ -76,18 +76,15 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.scrapper.multiplatform.BackHandler
 import org.scrapper.multiplatform.action.DptAction
 import org.scrapper.multiplatform.action.LasikAction
-import org.scrapper.multiplatform.action.SiipBpjsAction
 import org.scrapper.multiplatform.createXlsxLasik
-import org.scrapper.multiplatform.createXlsxSiip
 import org.scrapper.multiplatform.dataclass.LasikResult
-import org.scrapper.multiplatform.extension.SiipBPJSLoginUrl
 import org.scrapper.multiplatform.extension.awaitJavaScript
 import org.scrapper.multiplatform.extension.getCurrentTime
 import org.scrapper.multiplatform.extension.jvmPlatformId
 import org.scrapper.multiplatform.extension.lasikInputUrl
 import org.scrapper.multiplatform.extension.lasikPath
+import org.scrapper.multiplatform.extension.quoteSafeString
 import org.scrapper.multiplatform.extension.removeDoubleQuote
-import org.scrapper.multiplatform.extension.siipPath
 import org.scrapper.multiplatform.extension.waitWebViewToLoad
 import org.scrapper.multiplatform.extension.webUserAgent
 import org.scrapper.multiplatform.platformId
@@ -503,6 +500,7 @@ private fun Content(
                 )
             }
         }
+        Text(text = state.debugging)
         VerticalSpacer(10)
     }
 }
@@ -524,91 +522,112 @@ private fun AutoCheck(
 
         scope.coroutineContext.cancelChildren()
 
-        waitWebViewToLoad(webViewState)
+        val preloadWeb = waitWebViewToLoad(webViewState)
+        if (!preloadWeb) {
+            onAction(LasikAction.MessageDialog(
+                color = Warning,
+                icon = Icons.Filled.RestartAlt,
+                message = "Web Not Loaded Yet !"
+            ))
+            onAction(LasikAction.IsStarted)
+        }
 
         scope.launch {
             for (rawString in state.rawList) {
 
-                val nikElement = """
-                (function() {
-                    var nikInput = document.querySelector('input[placeholder="Isi Nomor E-KTP"]');
-                    if (nikInput) {
-                        nikInput.value = '${rawString.nikNumber}';
-                        nikInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        nikInput.dispatchEvent(new Event('change', { bubbles: true }));
-                        return true;
+                while (true) {
+                    val safeNik = quoteSafeString(rawString.nikNumber)
+                    val nikElement = """
+                    (function() {
+                        var nikInput = document.querySelector('input[placeholder="Isi Nomor E-KTP"]');
+                        if (nikInput) {
+                            nikInput.value = '$safeNik';
+                            nikInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            nikInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                        return false;
+                    })();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(nikElement)
+                    onAction(LasikAction.Debugging("Input NIK"))
+
+                    val safeKpj = quoteSafeString(rawString.kpjNumber)
+                    val kpjElement = """
+                    (function() {
+                        var kpjInput = document.querySelector('input[placeholder="Isi Nomor KPJ"]');
+                        if (kpjInput) {
+                            kpjInput.value = '$safeKpj';
+                            kpjInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            kpjInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                        return false;
+                    })();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(kpjElement)
+                    onAction(LasikAction.Debugging("Input KPJ"))
+
+                    val safeName = quoteSafeString(rawString.fullName)
+                    val nameElement = """
+                    (function() {
+                        var namaInput = document.querySelector('input[placeholder="Isi Nama sesuai KTP"]');
+                        if (namaInput) {
+                            namaInput.value = '$safeName';
+                            namaInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            namaInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                        return false;
+                    })();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(nameElement)
+                    onAction(LasikAction.Debugging("Input Nama"))
+
+                    delay(1000)
+
+                    val btnNextElement = """
+                    Array.from(document.querySelectorAll('div.wizard-buttons button'))
+                    .find(b => b.textContent.trim().includes('BERIKUTNYA'))?.click();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(btnNextElement)
+                    onAction(LasikAction.Debugging("Klik Next"))
+
+                    delay(3_500)
+
+                    onAction(LasikAction.Debugging("Deteksi Hasil"))
+                    val resultElement = """
+                    document.querySelector('.swal2-content').innerText;
+                    """.trimIndent()
+                    val resultDetection = webViewNavigator.awaitJavaScript(resultElement)
+
+                    onAction(LasikAction.Debugging(resultDetection))
+
+                    if (resultDetection.contains("JMO", ignoreCase = true)) {
+                        onAction(LasikAction.Debugging("Berhasil"))
+                        onAction(LasikAction.Process)
+                        onAction(LasikAction.Success)
+                    } else {
+                        onAction(LasikAction.Debugging("Gagal"))
+                        onAction(LasikAction.Process)
+                        onAction(LasikAction.Failure)
+                        break
                     }
-                    return false;
-                })();
-                """.trimIndent()
-                webViewNavigator.awaitJavaScript(nikElement)
 
-                val kpjElement = """
-                (function() {
-                    var kpjInput = document.querySelector('input[placeholder="Isi Nomor KPJ"]');
-                    if (kpjInput) {
-                        kpjInput.value = '${rawString.kpjNumber}';
-                        kpjInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        kpjInput.dispatchEvent(new Event('change', { bubbles: true }));
-                        return true;
-                    }
-                    return false;
-                })();
-                """.trimIndent()
-                webViewNavigator.awaitJavaScript(kpjElement)
-
-                val nameElement = """
-                (function() {
-                    var namaInput = document.querySelector('input[placeholder="Isi Nama sesuai KTP"]');
-                    if (namaInput) {
-                        namaInput.value = '${rawString.fullName}';
-                        namaInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        namaInput.dispatchEvent(new Event('change', { bubbles: true }));
-                        return true;
-                    }
-                    return false;
-                })();
-                """.trimIndent()
-                webViewNavigator.awaitJavaScript(nameElement)
-
-                delay(1000)
-
-                val btnNextElement = """
-                Array.from(document.querySelectorAll('div.wizard-buttons button'))
-                .find(b => b.textContent.trim().includes('BERIKUTNYA'))?.click();
-                """.trimIndent()
-                webViewNavigator.awaitJavaScript(btnNextElement)
-
-                delay(2_500)
-
-                val resultElement = """
-                document.querySelector('.swal2-content').innerText;
-                """.trimIndent()
-                val resultDetection = removeDoubleQuote(webViewNavigator.awaitJavaScript(resultElement))
-
-                onAction(LasikAction.JsResult(resultDetection))
-
-                if (resultDetection.contains("JMO")) {
-                    onAction(LasikAction.Process)
-                    onAction(LasikAction.Success)
-                } else {
-                    onAction(LasikAction.Process)
-                    onAction(LasikAction.Failure)
-                    continue
+                    val result = LasikResult(
+                        kpjNumber = rawString.kpjNumber,
+                        nikNumber = rawString.nikNumber,
+                        fullName = rawString.fullName,
+                        birthDate = rawString.birthDate,
+                        email = rawString.email,
+                        regencyName = rawString.regencyName,
+                        subdistrictName = rawString.subdistrictName,
+                        wardName = rawString.wardName,
+                        lasikResult = "Berhasil"
+                    )
+                    onAction(LasikAction.AddResult(result))
+                    break
                 }
-
-                val result = LasikResult(
-                    kpjNumber = rawString.kpjNumber,
-                    nikNumber = rawString.nikNumber,
-                    fullName = rawString.fullName,
-                    birthDate = rawString.birthDate,
-                    email = rawString.email,
-                    regencyName = rawString.regencyName,
-                    subdistrictName = rawString.subdistrictName,
-                    wardName = rawString.wardName,
-                    lasikResult = "Berhasil"
-                )
-                onAction(LasikAction.AddResult(result))
             }
             onAction(LasikAction.IsStarted)
         }

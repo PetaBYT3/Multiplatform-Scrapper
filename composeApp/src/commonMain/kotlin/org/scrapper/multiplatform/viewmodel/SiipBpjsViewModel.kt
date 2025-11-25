@@ -33,6 +33,9 @@ class SiipBpjsViewModel(
             is SiipBpjsAction.IsLoggedIn -> {
                 _state.update { it.copy(isLoggedIn = action.isLoggedIn) }
             }
+            SiipBpjsAction.ResetWebViewStateKey -> {
+                _state.update { it.copy(resetWebViewStateKey = it.resetWebViewStateKey + 1) }
+            }
             SiipBpjsAction.QuestionBottomSheet -> {
                 _state.update { it.copy(questionBottomSheet = !it.questionBottomSheet) }
             }
