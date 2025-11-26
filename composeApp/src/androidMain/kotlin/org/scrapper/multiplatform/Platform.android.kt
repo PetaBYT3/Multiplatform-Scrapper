@@ -372,8 +372,11 @@ actual fun KeepScreenOn(enabled: Boolean) {
     val view = LocalView.current
 
     DisposableEffect(enabled) {
-        view.keepScreenOn = enabled
+        val screenState = view.keepScreenOn
+        if (enabled) {
+            view.keepScreenOn = true
+        }
 
-        onDispose { view.keepScreenOn = false }
+        onDispose { view.keepScreenOn = screenState }
     }
 }

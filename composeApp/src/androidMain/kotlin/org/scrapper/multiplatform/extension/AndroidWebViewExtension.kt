@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
 class AdvanceWebViewControl {
@@ -33,16 +34,14 @@ class AdvanceWebViewControl {
         webView?.loadUrl(url)
     }
 
-    suspend fun waitWebToLoad(onLoaded: Boolean, timeoutMills: Long = 5_000) : Boolean {
-        val result = withTimeoutOrNull(timeoutMills) {
+    suspend fun waitWebToLoad(onLoaded: Boolean, timeoutMills: Long = 5_000) {
+        withTimeoutOrNull(timeoutMills) {
             delay(500)
             snapshotFlow { onLoaded }
                 .filter { loading -> !loading }
                 .first()
             delay(500)
         }
-
-        return result != null
     }
 
     fun navigateBack() {
@@ -55,11 +54,16 @@ fun rememberAdvanceViewControl(): AdvanceWebViewControl {
     return remember { AdvanceWebViewControl() }
 }
 
-suspend fun AdvanceWebViewControl.awaitJavaScript(script: String): String {
-    return suspendCancellableCoroutine { continuation ->
-        evaluateJavascript(script) { result ->
-            if (continuation.isActive) {
-                continuation.resume(result, null)
+suspend fun AdvanceWebViewControl.awaitJavaScript(
+    script: String,
+    timeoutMills: Long = 10_000
+): String {
+    return withTimeout(timeoutMills) {
+        suspendCancellableCoroutine { continuation ->
+            evaluateJavascript(script) { result ->
+                if (continuation.isActive) {
+                    continuation.resume(result, null)
+                }
             }
         }
     }

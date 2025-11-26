@@ -3,6 +3,7 @@ package org.scrapper.multiplatform
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +33,8 @@ import sun.jvmstat.monitor.MonitoredVmUtil.commandLine
 import java.io.File
 import java.nio.file.Paths
 import kotlin.math.max
+import kotlin.random.Random
+import kotlin.time.Clock
 
 fun main() = application {
     startKoin {
@@ -49,10 +52,14 @@ fun main() = application {
         var downloading by remember { mutableStateOf(0F) }
         var initialized by remember { mutableStateOf(false) }
 
+        val baseSessionDir = File(System.getProperty("user.home"), "Speed Runner/webview-data")
+        val uniqueSessionName = "session_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val sessionDataDir = File(baseSessionDir, uniqueSessionName)
+
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO) {
                 KCEF.init(builder = {
-                    installDir(File("kcef-bundle"))
+                    installDir(File(System.getProperty("user.home"), "Speed Runner/kcef-bundle"))
                     progress {
                         onDownloading {
                             downloading = max(it, 0F)
@@ -62,11 +69,9 @@ fun main() = application {
                         }
                     }
                     settings {
-                        val userHome = System.getProperty("user.home")
-                        val cacheDir = Paths.get(userHome, ".my-app-cache").toString()
-                        this.cachePath = cacheDir
+                        userAgentProduct = webUserAgent
                         userAgent = webUserAgent
-
+                        cachePath = sessionDataDir.absolutePath
                     }
                 }, onError = {
                     it?.printStackTrace()
@@ -97,7 +102,12 @@ fun main() = application {
                 ) {
                     CustomTextTitle(text = "Downloading KCEF Web View")
                     VerticalSpacer(10)
-                    CustomTextContent(text = "Downloading $downloading %")
+                    CustomTextContent(text = "Downloading ${(downloading * 100).toInt()}%")
+                    VerticalSpacer(10)
+                    LinearProgressIndicator(
+                        modifier = Modifier,
+                        progress = downloading
+                    )
                 }
             }
         }

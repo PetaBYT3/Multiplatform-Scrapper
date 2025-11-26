@@ -23,6 +23,7 @@ import com.valentinilk.shimmer.shimmer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
@@ -81,154 +82,149 @@ actual fun DptWebPageExtension(
 
         scope.launch {
             for (rawList in state.rawList) {
-
                 while (true) {
+                    try {
+                        webViewNavigator.loadUrl(dptUrlInput)
+                        waitWebViewToLoad(webState)
 
-                    webViewNavigator.loadUrl(dptUrlInput)
-                    val preloadWeb = waitWebViewToLoad(webState)
-                    if (!preloadWeb) {
-                        onAction(DptAction.MessageDialog(
-                            color = Warning,
-                            icon = Icons.Filled.RestartAlt,
-                            message = "Web Fail To Load !"
-                        ))
-                        continue
-                    }
+                        val safeNik = quoteSafeString(rawList.nikNumber)
+                        val inputNikElement = """
+                        (function() {
+                            const input = document.querySelector('form input[type="text"]');
+                            if (input) {
+                                input.value = '$safeNik';
+                                input.dispatchEvent(new Event('input', {bubbles: true}));
+                                return 'OK';
+                            }
+                            return 'NO_INPUT';
+                        })();
+                        """.trimIndent()
+                        webViewNavigator.awaitJavaScript(inputNikElement)
 
-                    val safeNik = quoteSafeString(rawList.nikNumber)
-                    val inputNikElement = """
-                    (function() {
-                        const input = document.querySelector('form input[type="text"]');
-                        if (input) {
-                            input.value = '$safeNik';
-                            input.dispatchEvent(new Event('input', {bubbles: true}));
-                            return 'OK';
-                        }
-                        return 'NO_INPUT';
-                    })();
-                    """.trimIndent()
-                    webViewNavigator.awaitJavaScript(inputNikElement)
+                        delay(1_000)
 
-                    delay(1_000)
-
-                    val bypassCaptcha = """
-                    window.grecaptcha = { execute: () => Promise.resolve('token') };
-                    if (typeof findDptb === 'function') findDptb('${rawList.nikNumber}');
-                    """.trimIndent()
+                        val bypassCaptcha = """
+                        window.grecaptcha = { execute: () => Promise.resolve('token') };
+                        if (typeof findDptb === 'function') findDptb('${rawList.nikNumber}');
+                        """.trimIndent()
                         webViewNavigator.awaitJavaScript(bypassCaptcha)
 
                         delay(1_000)
 
                         val elementFind = """
-                    Array.from(document.querySelectorAll('div.wizard-buttons button'))
-                    .find(b => b.textContent.trim().includes('Pencarian'))?.click();
-                    """.trimIndent()
-                    webViewNavigator.awaitJavaScript(elementFind)
+                        Array.from(document.querySelectorAll('div.wizard-buttons button'))
+                        .find(b => b.textContent.trim().includes('Pencarian'))?.click();
+                        """.trimIndent()
+                        webViewNavigator.awaitJavaScript(elementFind)
 
-                    val resultWebLoad = waitWebViewToLoad(webState)
-                    if (!resultWebLoad) {
+                        waitWebViewToLoad(webState)
+
+                        val jsCheck = "document.querySelector('.watermarked') ? 'YES' : 'NO';"
+                        val jsCheckResult = webViewNavigator.awaitJavaScript(jsCheck)
+                        if (jsCheckResult.contains("YES", ignoreCase = true)) {
+                            isDataFound = true
+                        } else {
+                            isDataFound = false
+                        }
+
+                        if (!isDataFound) {
+                            onAction(DptAction.Process)
+                            onAction(DptAction.Failure)
+                            break
+                        }
+
+                        val triggerNameExtraction = """
+                        (function() {
+                            try {
+                                var bodyText = document.body.innerText || "";
+                                var lines = bodyText.split('\n');
+                                var foundName = "NOT_FOUND"; 
+                                for (var i = 0; i < lines.length; i++) {
+                                    var line = lines[i].trim();
+                                    if (line.toLowerCase().includes('nama pemilih')) {
+                                        for (var j = i + 1; j < lines.length; j++) {
+                                            var nextLine = lines[j].trim();
+                                            if (nextLine.length > 2 && isNaN(nextLine.replace(/\s/g, ''))) {
+                                                foundName = nextLine;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (foundName !== "NOT_FOUND") break;
+                                }
+                                document.title = "HASIL_NAMA:" + foundName;
+                            } catch (e) {
+                                document.title = "HASIL_ERROR:" + e.message;
+                            }
+                        })();
+                        """.trimIndent()
+                        webViewNavigator.awaitJavaScript(triggerNameExtraction)
+
+                        var attempts = 0
+                        var extractedName = ""
+
+                        while (attempts < 10) {
+                            delay(500)
+                            val currentTitle = webState.pageTitle ?: ""
+
+                            if (currentTitle.startsWith("HASIL_NAMA:")) {
+                                extractedName = currentTitle.removePrefix("HASIL_NAMA:").trim()
+                                webViewNavigator.awaitJavaScript("document.title = 'Cek DPT Online';")
+                                break
+                            } else if (currentTitle.startsWith("HASIL_ERROR:")) {
+                                println("JS Error via Title: " + currentTitle)
+                                break
+                            }
+                            attempts++
+                        }
+                        val filteredFullName = getFullName(extractedName)
+
+                        val regencyElement = "document.querySelector('.row--left')?.textContent?.trim()"
+                        val regencyResult = webViewNavigator.awaitJavaScript(regencyElement)
+                        val removedQuoteRegency = removeDoubleQuote(regencyResult)
+                        val filteredRegency = getRegencyName(removedQuoteRegency)
+
+                        val subdistrictElement = "document.querySelector('.row--center')?.textContent?.trim()"
+                        val subdistrictResult = webViewNavigator.awaitJavaScript(subdistrictElement)
+                        val removedQuoteSubdistrict = removeDoubleQuote(subdistrictResult)
+                        val filteredSubdistrict = getSubdistrictName(removedQuoteSubdistrict)
+
+                        val wardElement = "document.querySelectorAll('.row--right')[2]?.textContent?.trim()"
+                        val wardResult = webViewNavigator.awaitJavaScript(wardElement)
+                        val removedQuoteWard = removeDoubleQuote(wardResult)
+                        val filteredWard = getWardName(removedQuoteWard)
+
+                        val result = DptResult(
+                            kpjNumber = rawList.kpjNumber,
+                            nikNumber = rawList.nikNumber,
+                            fullName = filteredFullName,
+                            birthDate = rawList.birthDate,
+                            email = rawList.email,
+                            regencyName = filteredRegency,
+                            subdistrictName = filteredSubdistrict,
+                            wardName = filteredWard
+                        )
+
+                        onAction(DptAction.JsResult(result.toString()))
+                        onAction(DptAction.AddResult(result))
+                        onAction(DptAction.Process)
+                        onAction(DptAction.Success)
+                        break
+                    } catch (e: TimeoutCancellationException) {
                         onAction(DptAction.MessageDialog(
                             color = Warning,
                             icon = Icons.Filled.RestartAlt,
-                            message = "Web Fail To Load !"
+                            message = "Timeout !, Retrying..."
+                        ))
+                        continue
+                    } catch (e: Exception) {
+                        onAction(DptAction.MessageDialog(
+                            color = Warning,
+                            icon = Icons.Filled.RestartAlt,
+                            message = "Error !. Retrying..."
                         ))
                         continue
                     }
-
-                    val jsCheck = "document.querySelector('.watermarked') ? 'YES' : 'NO';"
-                    val jsCheckResult = webViewNavigator.awaitJavaScript(jsCheck)
-                    if (jsCheckResult.contains("YES", ignoreCase = true)) {
-                        isDataFound = true
-                    } else {
-                        isDataFound = false
-                    }
-
-                    if (!isDataFound) {
-                        onAction(DptAction.Process)
-                        onAction(DptAction.Failure)
-                        continue
-                    }
-
-                    val triggerNameExtraction = """
-                    (function() {
-                        try {
-                            var bodyText = document.body.innerText || "";
-                            var lines = bodyText.split('\n');
-                            var foundName = "NOT_FOUND";
-                            
-                            for (var i = 0; i < lines.length; i++) {
-                                var line = lines[i].trim();
-                                if (line.toLowerCase().includes('nama pemilih')) {
-                                    for (var j = i + 1; j < lines.length; j++) {
-                                        var nextLine = lines[j].trim();
-                                        if (nextLine.length > 2 && isNaN(nextLine.replace(/\s/g, ''))) {
-                                            foundName = nextLine;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if (foundName !== "NOT_FOUND") break;
-                            }
-                            
-                            document.title = "HASIL_NAMA:" + foundName;
-                            
-                        } catch (e) {
-                            document.title = "HASIL_ERROR:" + e.message;
-                        }
-                    })();
-                    """.trimIndent()
-                    webViewNavigator.awaitJavaScript(triggerNameExtraction)
-
-                    var attempts = 0
-                    var extractedName = ""
-
-                    while (attempts < 10) {
-                        delay(500)
-                        val currentTitle = webState.pageTitle ?: ""
-
-                        if (currentTitle.startsWith("HASIL_NAMA:")) {
-                            extractedName = currentTitle.removePrefix("HASIL_NAMA:").trim()
-                            webViewNavigator.evaluateJavaScript("document.title = 'Cek DPT Online';")
-                            break
-                        } else if (currentTitle.startsWith("HASIL_ERROR:")) {
-                            println("JS Error via Title: " + currentTitle)
-                            break
-                        }
-                        attempts++
-                    }
-                    val filteredFullName = getFullName(extractedName)
-
-                    val regencyElement = "document.querySelector('.row--left')?.textContent?.trim()"
-                    val regencyResult = webViewNavigator.awaitJavaScript(regencyElement)
-                    val removedQuoteRegency = removeDoubleQuote(regencyResult)
-                    val filteredRegency = getRegencyName(removedQuoteRegency)
-
-                    val subdistrictElement = "document.querySelector('.row--center')?.textContent?.trim()"
-                    val subdistrictResult = webViewNavigator.awaitJavaScript(subdistrictElement)
-                    val removedQuoteSubdistrict = removeDoubleQuote(subdistrictResult)
-                    val filteredSubdistrict = getSubdistrictName(removedQuoteSubdistrict)
-
-                    val wardElement = "document.querySelectorAll('.row--right')[2]?.textContent?.trim()"
-                    val wardResult = webViewNavigator.awaitJavaScript(wardElement)
-                    val removedQuoteWard = removeDoubleQuote(wardResult)
-                    val filteredWard = getWardName(removedQuoteWard)
-
-                    val result = DptResult(
-                        kpjNumber = rawList.kpjNumber,
-                        nikNumber = rawList.nikNumber,
-                        fullName = filteredFullName,
-                        birthDate = rawList.birthDate,
-                        email = rawList.email,
-                        regencyName = filteredRegency,
-                        subdistrictName = filteredSubdistrict,
-                        wardName = filteredWard
-                    )
-
-                    onAction(DptAction.JsResult(result.toString()))
-                    onAction(DptAction.AddResult(result))
-                    onAction(DptAction.Process)
-                    onAction(DptAction.Success)
-                    break
                 }
             }
             onAction(DptAction.IsStarted)

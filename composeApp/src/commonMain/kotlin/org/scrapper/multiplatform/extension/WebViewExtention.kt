@@ -9,30 +9,33 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
 suspend fun waitWebViewToLoad(
     webViewState: WebViewState,
-    timeoutMills: Long = 5_000
-): Boolean {
-    val result = withTimeoutOrNull(timeoutMills) {
+    timeoutMills: Long = 10_000L
+) {
+    withTimeout(timeoutMills) {
         delay(500)
         snapshotFlow { webViewState.loadingState }
             .filterIsInstance<LoadingState.Finished>()
             .first()
         delay(500)
-        true
     }
-
-    return result != null
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-suspend fun WebViewNavigator.awaitJavaScript(script: String): String {
-    return suspendCancellableCoroutine { continuation ->
-        evaluateJavaScript(script) { result ->
-            if (continuation.isActive) {
-                continuation.resume(result, null)
+suspend fun WebViewNavigator.awaitJavaScript(
+    script: String,
+    timeoutMills: Long = 10_000L
+): String {
+    return withTimeout(timeoutMills) {
+        suspendCancellableCoroutine { continuation ->
+            evaluateJavaScript(script) { result ->
+                if (continuation.isActive) {
+                    continuation.resume(result, null)
+                }
             }
         }
     }

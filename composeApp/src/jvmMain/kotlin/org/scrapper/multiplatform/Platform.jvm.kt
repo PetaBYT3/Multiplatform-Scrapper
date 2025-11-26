@@ -3,13 +3,16 @@ package org.scrapper.multiplatform
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import com.russhwolf.settings.ObservableSettings
 import com.russhwolf.settings.PreferencesSettings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -27,6 +30,8 @@ import org.scrapper.multiplatform.repository.FirebaseRepository
 import org.scrapper.multiplatform.services.FirebaseServices
 import java.awt.KeyEventDispatcher
 import java.awt.KeyboardFocusManager
+import java.awt.MouseInfo
+import java.awt.Robot
 import java.awt.event.KeyEvent
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream

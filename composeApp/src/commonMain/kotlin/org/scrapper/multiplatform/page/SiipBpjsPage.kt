@@ -74,6 +74,7 @@ import io.github.vinceglb.filekit.core.PickerType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
@@ -543,7 +544,6 @@ private fun Content(
                 )
             }
         }
-        Text(text = state.debugging)
         VerticalSpacer(10)
     }
 }
@@ -577,128 +577,126 @@ private fun AutoCheck(
         scope.launch {
             for (rawString in state.rawList) {
                 while (true) {
-                    kpjNumber = ""
-                    nikNumber = ""
-                    birthDate = ""
-                    email = ""
+                    try {
+                        kpjNumber = ""
+                        nikNumber = ""
+                        birthDate = ""
+                        email = ""
 
-                    webViewNavigator.loadUrl(SiipBPJSInput)
-                    val preloadWeb = waitWebViewToLoad(webViewState = webViewState)
-                    if (!preloadWeb) {
-                        onAction(SiipBpjsAction.MessageDialog(
-                            color = Warning,
-                            icon = Icons.Filled.RestartAlt,
-                            message = "Web Fail To Load !"
-                        ))
-                        continue
-                    }
+                        webViewNavigator.loadUrl(SiipBPJSInput)
+                        waitWebViewToLoad(webViewState = webViewState)
 
-                    val doneButton = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Sudah'))?.click();"
-                    webViewNavigator.evaluateJavaScript(doneButton)
-                    onAction(SiipBpjsAction.Debugging("Klik Tombol Sudah"))
+                        val doneButton = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Sudah'))?.click();"
+                        webViewNavigator.evaluateJavaScript(doneButton)
+                        onAction(SiipBpjsAction.Debugging("Klik Tombol Sudah"))
 
-                    if (!isTesting) delay(500)
+                        delay(500)
 
-                    val quoteSafeKpj = quoteSafeString(rawString)
-                    val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$quoteSafeKpj';"
-                    webViewNavigator.evaluateJavaScript(kpjTextField)
-                    onAction(SiipBpjsAction.Debugging("Input KPJ"))
+                        val quoteSafeKpj = quoteSafeString(rawString)
+                        val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$quoteSafeKpj';"
+                        webViewNavigator.evaluateJavaScript(kpjTextField)
+                        onAction(SiipBpjsAction.Debugging("Input KPJ"))
 
-                    if (!isTesting) delay(500)
+                        delay(500)
 
-                    val btnNext = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Lanjut'))?.click();"
-                    webViewNavigator.evaluateJavaScript(btnNext)
-                    onAction(SiipBpjsAction.Debugging("Klik Tombol Lanjut"))
+                        val btnNext = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Lanjut'))?.click();"
+                        webViewNavigator.evaluateJavaScript(btnNext)
+                        onAction(SiipBpjsAction.Debugging("Klik Tombol Lanjut"))
 
-                    delay(5_000)
+                        delay(5_000)
 
-                    val resultElement = "document.querySelector('.swal2-content').textContent;"
-                    val resultDialog = webViewNavigator.awaitJavaScript(resultElement)
-                    if (resultDialog.contains("Terlalu banyak percobaan yang gagal dalam waktu singkat", ignoreCase = true)) {
-                        onAction(SiipBpjsAction.MessageDialog(
-                            color = Warning,
-                            icon = Icons.Filled.RestartAlt,
-                            message = "Retrying..."
-                        ))
-                        onAction(SiipBpjsAction.Debugging("Coldown Terdeteksi"))
-                        continue
-                    }
-
-                    onAction(SiipBpjsAction.Debugging("Deteksi Hasil KPJ"))
-                    val successDetection = "document.querySelector('.swal2-title').textContent;"
-                    val successResult = webViewNavigator.awaitJavaScript(successDetection)
-
-                    if (!isTesting) delay(10_000)
-
-                    if (successResult.contains("Berhasil!", ignoreCase = true)) {
-                        isKpjDetected = true
-                    } else {
-                        isKpjDetected = false
-                    }
-
-                    if (!isKpjDetected) {
-                        onAction(SiipBpjsAction.Failure)
-                        onAction(SiipBpjsAction.Process)
-                        onAction(SiipBpjsAction.Debugging("KPJ Gagal"))
-                        break
-                    }
-
-                    onAction(SiipBpjsAction.Debugging("KPJ Berhasil"))
-
-                    kpjNumber = rawString
-
-                    val continueButton = "document.querySelector('.swal2-confirm').click();"
-                    webViewNavigator.awaitJavaScript(continueButton)
-                    onAction(SiipBpjsAction.Debugging("Klik Tombol Konfirmasi"))
-
-                    val loadDataWeb = waitWebViewToLoad(webViewState = webViewState)
-                    if (!loadDataWeb) {
-                        onAction(SiipBpjsAction.MessageDialog(
-                            color = Warning,
-                            icon = Icons.Filled.RestartAlt,
-                            message = "Web Fail To Load !"
-                        ))
-                        continue
-                    }
-
-                    onAction(SiipBpjsAction.Debugging("Mengekstrak Data"))
-
-                    val nikElement = "document.getElementById('no_identitas').value;"
-                    val nikResult = webViewNavigator.awaitJavaScript(nikElement)
-                    val removedQuoteNik = removeDoubleQuote(nikResult)
-                    nikNumber = removedQuoteNik
-
-                    val birthDateElement = "document.getElementById('tgl_lahir').value;"
-                    val birthDateResult = webViewNavigator.awaitJavaScript(birthDateElement)
-                    val removedQuoteBirthDate = removeDoubleQuote(birthDateResult)
-                    birthDate = removedQuoteBirthDate
-
-                    val emailElement = "document.getElementById('email').value;"
-                    val emailResult = webViewNavigator.awaitJavaScript(emailElement)
-                    val removedQuoteEmail = removeDoubleQuote(emailResult)
-
-                    if (state.getGmail) {
-                        email = removedQuoteEmail
-                    } else {
-                        if (removedQuoteEmail.contains("@gmail.com", ignoreCase = true)) {
-                            email = ""
-                        } else {
-                            email = removedQuoteEmail
+                        val resultElement = "document.querySelector('.swal2-content').textContent;"
+                        val resultDialog = webViewNavigator.awaitJavaScript(resultElement)
+                        if (resultDialog.contains("Terlalu banyak percobaan yang gagal dalam waktu singkat", ignoreCase = true)) {
+                            onAction(SiipBpjsAction.MessageDialog(
+                                color = Warning,
+                                icon = Icons.Filled.RestartAlt,
+                                message = "Too Many Attempt, Retrying..."
+                            ))
+                            onAction(SiipBpjsAction.Debugging("Coldown Terdeteksi"))
+                            continue
                         }
+
+                        onAction(SiipBpjsAction.Debugging("Deteksi Hasil KPJ"))
+                        val successDetection = "document.querySelector('.swal2-title').textContent;"
+                        val successResult = webViewNavigator.awaitJavaScript(successDetection)
+
+                        delay(10_000)
+
+                        if (successResult.contains("Berhasil!", ignoreCase = true)) {
+                            isKpjDetected = true
+                        } else {
+                            isKpjDetected = false
+                        }
+
+                        if (!isKpjDetected) {
+                            onAction(SiipBpjsAction.Failure)
+                            onAction(SiipBpjsAction.Process)
+                            onAction(SiipBpjsAction.Debugging("KPJ Gagal"))
+                            break
+                        }
+
+                        onAction(SiipBpjsAction.Debugging("KPJ Berhasil"))
+
+                        kpjNumber = rawString
+
+                        val continueButton = "document.querySelector('.swal2-confirm').click();"
+                        webViewNavigator.awaitJavaScript(continueButton)
+                        onAction(SiipBpjsAction.Debugging("Klik Tombol Konfirmasi"))
+
+                        waitWebViewToLoad(webViewState = webViewState)
+
+                        val nikElement = "document.getElementById('no_identitas').value;"
+                        val nikResult = webViewNavigator.awaitJavaScript(nikElement)
+                        val removedQuoteNik = removeDoubleQuote(nikResult)
+                        nikNumber = removedQuoteNik
+
+                        val birthDateElement = "document.getElementById('tgl_lahir').value;"
+                        val birthDateResult = webViewNavigator.awaitJavaScript(birthDateElement)
+                        val removedQuoteBirthDate = removeDoubleQuote(birthDateResult)
+                        birthDate = removedQuoteBirthDate
+
+                        val emailElement = "document.getElementById('email').value;"
+                        val emailResult = webViewNavigator.awaitJavaScript(emailElement)
+                        val removedQuoteEmail = removeDoubleQuote(emailResult)
+
+                        if (state.getGmail) {
+                            email = removedQuoteEmail
+                        } else {
+                            if (removedQuoteEmail.contains("@gmail.com", ignoreCase = true)) {
+                                email = ""
+                            } else {
+                                email = removedQuoteEmail
+                            }
+                        }
+
+                        val result = SiipResult(
+                            kpjNumber = kpjNumber,
+                            fullName = "",
+                            nikNumber = nikNumber,
+                            birthDate = birthDate,
+                            email = email
+                        )
+
+                        onAction(SiipBpjsAction.AddResult(result = result))
+                        onAction(SiipBpjsAction.Success)
+                        onAction(SiipBpjsAction.Process)
+                        break
+                    } catch (e: TimeoutCancellationException) {
+                        onAction(SiipBpjsAction.MessageDialog(
+                            color = Warning,
+                            icon = Icons.Filled.RestartAlt,
+                            message = "Timeout !, Retrying..."
+                        ))
+                        continue
+                    } catch (e: Exception) {
+                        onAction(SiipBpjsAction.MessageDialog(
+                            color = Warning,
+                            icon = Icons.Filled.RestartAlt,
+                            message = "Error !. Retrying..."
+                        ))
+                        continue
                     }
-
-                    val result = SiipResult(
-                        kpjNumber = kpjNumber,
-                        fullName = "",
-                        nikNumber = nikNumber,
-                        birthDate = birthDate,
-                        email = email
-                    )
-
-                    onAction(SiipBpjsAction.AddResult(result = result))
-                    onAction(SiipBpjsAction.Success)
-                    onAction(SiipBpjsAction.Process)
-                    break
                 }
             }
             onAction(SiipBpjsAction.IsStarted)
