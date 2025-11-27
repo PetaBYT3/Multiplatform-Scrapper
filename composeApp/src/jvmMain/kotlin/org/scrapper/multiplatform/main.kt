@@ -1,10 +1,13 @@
 package org.scrapper.multiplatform
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.Text
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +32,7 @@ import org.scrapper.multiplatform.template.CustomTextContent
 import org.scrapper.multiplatform.template.CustomTextMedium
 import org.scrapper.multiplatform.template.CustomTextTitle
 import org.scrapper.multiplatform.template.VerticalSpacer
+import org.scrapper.multiplatform.theme.AppTheme
 import sun.jvmstat.monitor.MonitoredVmUtil.commandLine
 import java.io.File
 import java.nio.file.Paths
@@ -41,80 +45,87 @@ fun main() = application {
         modules(Module.getModules())
     }
 
-    Window(
-        onCloseRequest = {
-            exitApplication()
-        },
-        title = "Speed Runner",
-        icon = painterResource("speed_runner.png")
-    ) {
-        var restartRequired by remember { mutableStateOf(false) }
-        var downloading by remember { mutableStateOf(0F) }
-        var initialized by remember { mutableStateOf(false) }
+    AppTheme {
+        Window(
+            onCloseRequest = {
+                exitApplication()
+            },
+            title = "Speed Runner",
+            icon = painterResource("speed_runner.png")
+        ) {
+            var restartRequired by remember { mutableStateOf(false) }
+            var downloading by remember { mutableStateOf(0F) }
+            var initialized by remember { mutableStateOf(false) }
 
-        val baseSessionDir = File(System.getProperty("user.home"), "Speed Runner/webview-data")
-        val uniqueSessionName = "session_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
-        val sessionDataDir = File(baseSessionDir, uniqueSessionName)
+            val baseSessionDir = File(System.getProperty("user.home"), "Speed Runner/webview-data")
+            val uniqueSessionName = "session_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+            val sessionDataDir = File(baseSessionDir, uniqueSessionName)
 
-        LaunchedEffect(Unit) {
-            withContext(Dispatchers.IO) {
-                KCEF.init(builder = {
-                    installDir(File(System.getProperty("user.home"), "Speed Runner/kcef-bundle"))
-                    progress {
-                        onDownloading {
-                            downloading = max(it, 0F)
+            LaunchedEffect(Unit) {
+                withContext(Dispatchers.IO) {
+                    KCEF.init(builder = {
+                        installDir(File(System.getProperty("user.home"), "Speed Runner/kcef-bundle"))
+                        progress {
+                            onDownloading {
+                                downloading = max(it, 0F)
+                            }
+                            onInitialized {
+                                initialized = true
+                            }
                         }
-                        onInitialized {
-                            initialized = true
+                        settings {
+                            userAgentProduct = webUserAgent
+                            userAgent = webUserAgent
+                            cachePath = sessionDataDir.absolutePath
                         }
-                    }
-                    settings {
-                        userAgentProduct = webUserAgent
-                        userAgent = webUserAgent
-                        cachePath = sessionDataDir.absolutePath
-                    }
-                }, onError = {
-                    it?.printStackTrace()
-                }, onRestartRequired = {
-                    restartRequired = true
-                })
+                    }, onError = {
+                        it?.printStackTrace()
+                    }, onRestartRequired = {
+                        restartRequired = true
+                    })
+                }
             }
-        }
 
-        if (restartRequired) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                CustomTextTitle(text = "Please Restart The App !")
-            }
-        } else {
-            if (initialized) {
-                App()
-            } else {
+            if (restartRequired) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    CustomTextTitle(text = "Downloading KCEF Web View")
-                    VerticalSpacer(10)
-                    CustomTextContent(text = "Downloading ${(downloading / 100).toInt()}%")
-                    VerticalSpacer(10)
-                    LinearProgressIndicator(
-                        modifier = Modifier,
-                        progress = downloading
-                    )
+                    CustomTextTitle(text = "Please Restart The App !")
+                }
+            } else {
+                if (initialized) {
+                    App()
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CustomTextTitle(text = "Downloading KCEF Web View")
+                        VerticalSpacer(10)
+                        CustomTextContent(text = "${downloading}%")
+                        VerticalSpacer(10)
+                        val animateLoadingState by animateFloatAsState(
+                            targetValue = downloading,
+                            animationSpec = tween()
+                        )
+                        LinearProgressIndicator(
+                            progress = animateLoadingState / 100,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            trackColor = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
-        }
 
-        DisposableEffect(Unit) {
-            onDispose {
-                KCEF.disposeBlocking()
+            DisposableEffect(Unit) {
+                onDispose {
+                    KCEF.disposeBlocking()
+                }
             }
         }
     }
