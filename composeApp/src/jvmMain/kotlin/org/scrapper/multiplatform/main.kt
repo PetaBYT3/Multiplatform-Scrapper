@@ -102,7 +102,7 @@ fun main() = application {
                 ) {
                     CustomTextTitle(text = "Downloading KCEF Web View")
                     VerticalSpacer(10)
-                    CustomTextContent(text = "Downloading ${(downloading * 100).toInt()}%")
+                    CustomTextContent(text = "Downloading ${(downloading / 100).toInt()}%")
                     VerticalSpacer(10)
                     LinearProgressIndicator(
                         modifier = Modifier,

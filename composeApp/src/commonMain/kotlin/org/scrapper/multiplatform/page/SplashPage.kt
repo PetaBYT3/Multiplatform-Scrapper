@@ -23,6 +23,8 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
+import org.scrapper.multiplatform.composeapp.generated.resources.Res
+import org.scrapper.multiplatform.composeapp.generated.resources.speed_runner
 import org.scrapper.multiplatform.route.Route
 import org.scrapper.multiplatform.viewmodel.SplashViewModel
 
@@ -62,13 +64,13 @@ fun SplashPage(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-//                Image(
-//                    modifier = Modifier
-//                        .size(110.dp)
-//                        .clip(RoundedCornerShape(50)),
-//                    painter = painterResource(Res.drawable.speed_runner),
-//                    contentDescription = null
-//                )
+                Image(
+                    modifier = Modifier
+                        .size(110.dp)
+                        .clip(RoundedCornerShape(50)),
+                    painter = painterResource(Res.drawable.speed_runner),
+                    contentDescription = null
+                )
             }
         }
     )

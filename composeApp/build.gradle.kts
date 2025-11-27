@@ -161,7 +161,8 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Speed Runner"
             packageVersion = "1.0.0"
-            group = "Andrea Hussanini (andreahussanini.2103@gmail.com)"
+            group = "org.scrapper.multiplatform"
+            description = "App by Andrea Hussanini (andreahussanini.2103@gmail.com)"
             copyright = "© 2025 Andrea Hussanini (andreahussanini.2103@gmail.com)"
 
             windows {

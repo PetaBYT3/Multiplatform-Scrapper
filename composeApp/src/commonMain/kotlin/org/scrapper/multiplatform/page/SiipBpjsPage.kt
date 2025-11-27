@@ -564,8 +564,6 @@ private fun AutoCheck(
     var birthDate by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
 
-    var isKpjDetected by remember { mutableStateOf(false) }
-
     LaunchedEffect(state.isStarted) {
         if (!state.isStarted) {
             scope.coroutineContext.cancelChildren()
@@ -603,7 +601,7 @@ private fun AutoCheck(
                         webViewNavigator.evaluateJavaScript(btnNext)
                         onAction(SiipBpjsAction.Debugging("Klik Tombol Lanjut"))
 
-                        delay(5_000)
+                        delay(4_000)
 
                         val resultElement = "document.querySelector('.swal2-content').textContent;"
                         val resultDialog = webViewNavigator.awaitJavaScript(resultElement)
@@ -617,26 +615,22 @@ private fun AutoCheck(
                             continue
                         }
 
-                        onAction(SiipBpjsAction.Debugging("Deteksi Hasil KPJ"))
+                        if (resultDialog.contains("DATA NOT FOUND", ignoreCase = true)) {
+                            onAction(SiipBpjsAction.Failure)
+                            onAction(SiipBpjsAction.Process)
+                            break
+                        }
+
                         val successDetection = "document.querySelector('.swal2-title').textContent;"
                         val successResult = webViewNavigator.awaitJavaScript(successDetection)
 
                         delay(10_000)
 
-                        if (successResult.contains("Berhasil!", ignoreCase = true)) {
-                            isKpjDetected = true
-                        } else {
-                            isKpjDetected = false
-                        }
-
-                        if (!isKpjDetected) {
+                        if (successResult.contains("Opps! Gagal", ignoreCase = true)) {
                             onAction(SiipBpjsAction.Failure)
                             onAction(SiipBpjsAction.Process)
-                            onAction(SiipBpjsAction.Debugging("KPJ Gagal"))
                             break
                         }
-
-                        onAction(SiipBpjsAction.Debugging("KPJ Berhasil"))
 
                         kpjNumber = rawString
 
