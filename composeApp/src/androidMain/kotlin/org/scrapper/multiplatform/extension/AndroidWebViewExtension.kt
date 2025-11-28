@@ -35,7 +35,7 @@ class AdvanceWebViewControl {
     }
 
     suspend fun waitWebToLoad(onLoaded: Boolean, timeoutMills: Long = 5_000) {
-        withTimeoutOrNull(timeoutMills) {
+        withTimeout(timeoutMills) {
             delay(500)
             snapshotFlow { onLoaded }
                 .filter { loading -> !loading }

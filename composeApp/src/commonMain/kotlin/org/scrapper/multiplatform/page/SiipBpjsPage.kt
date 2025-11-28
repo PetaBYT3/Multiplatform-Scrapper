@@ -81,6 +81,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import org.scrapper.multiplatform.BackHandler
+import org.scrapper.multiplatform.KeepScreenOn
 import org.scrapper.multiplatform.action.SiipBpjsAction
 import org.scrapper.multiplatform.createXlsxSiip
 import org.scrapper.multiplatform.dataclass.SiipResult
@@ -134,6 +135,8 @@ fun SiipBpjsPage(
             }
         }
     )
+
+    KeepScreenOn(state.isStarted)
 
     Scaffold(
         navController = navController,

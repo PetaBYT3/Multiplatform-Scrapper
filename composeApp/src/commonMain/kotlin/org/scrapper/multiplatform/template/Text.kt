@@ -3,6 +3,7 @@ package org.scrapper.multiplatform.template
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun CustomTextLarge(text: String) {
@@ -32,7 +33,8 @@ fun CustomTextTitle(text: String) {
 fun CustomTextContent(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium
+        style = MaterialTheme.typography.bodyMedium,
+        overflow = TextOverflow.Ellipsis
     )
 }
 

@@ -70,6 +70,7 @@ import io.github.vinceglb.filekit.core.PickerType
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
 import org.scrapper.multiplatform.BackHandler
+import org.scrapper.multiplatform.KeepScreenOn
 import org.scrapper.multiplatform.action.DptAction
 import org.scrapper.multiplatform.action.SiipBpjsAction
 import org.scrapper.multiplatform.createXlsxDpt
@@ -131,6 +132,8 @@ fun DptPage(
             }
         }
     )
+
+    KeepScreenOn(state.isStarted)
 
     if (state.questionBottomSheet) {
         CustomBottomSheetMessageComposable(
@@ -221,10 +224,6 @@ private fun TopBar(
         title = { Text(text = "DPT") },
         actions = {
             Row() {
-                CustomIconButton(
-                    imageVector = Icons.Filled.RestartAlt,
-                    onClick = { webViewNavigator.loadUrl(dptUrlInput) }
-                )
                 CustomIconButton(
                     imageVector = Icons.Filled.QuestionMark,
                     onClick = { onAction(DptAction.QuestionBottomSheet) }

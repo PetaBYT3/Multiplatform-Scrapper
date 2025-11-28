@@ -75,6 +75,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import org.scrapper.multiplatform.BackHandler
+import org.scrapper.multiplatform.KeepScreenOn
 import org.scrapper.multiplatform.action.DptAction
 import org.scrapper.multiplatform.action.LasikAction
 import org.scrapper.multiplatform.action.SiipBpjsAction
@@ -132,6 +133,8 @@ fun LasikPage(
             }
         }
     )
+
+    KeepScreenOn(state.isStarted)
 
     if (state.questionBottomSheet) {
         CustomBottomSheetMessageComposable(
@@ -225,10 +228,6 @@ private fun TopBar(
         title = { Text(text = "LASIK") },
         actions = {
             Row() {
-                CustomIconButton(
-                    imageVector = Icons.Filled.RestartAlt,
-                    onClick = { webViewNavigator.loadUrl(lasikInputUrl) }
-                )
                 CustomIconButton(
                     imageVector = Icons.Filled.QuestionMark,
                     onClick = { onAction(LasikAction.QuestionBottomSheet) }
@@ -580,6 +579,7 @@ private fun AutoCheck(
                         webViewNavigator.awaitJavaScript(kpjElement)
 
                         val safeName = quoteSafeString(rawString.fullName)
+                        onAction(LasikAction.Debugging(safeName))
                         val nameElement = """
                         (function() {
                             var namaInput = document.querySelector('input[placeholder="Isi Nama sesuai KTP"]');
@@ -602,7 +602,7 @@ private fun AutoCheck(
                         """.trimIndent()
                         webViewNavigator.awaitJavaScript(btnNextElement)
 
-                        delay(3_500)
+                        delay(4_000)
 
                         val resultElement = """
                         document.querySelector('.swal2-content').innerText;
