@@ -512,15 +512,11 @@ private fun AutoCheck(
     state: LasikState,
     onAction: (LasikAction) -> Unit
 ) {
-    val scope = remember { CoroutineScope(Dispatchers.IO + SupervisorJob()) }
 
     LaunchedEffect(state.isStarted) {
         if (!state.isStarted) {
-            scope.coroutineContext.cancelChildren()
             return@LaunchedEffect
         }
-
-        scope.coroutineContext.cancelChildren()
 
         while (true) {
             try {
@@ -534,127 +530,107 @@ private fun AutoCheck(
                     message = "Timeout Loading Web, Retrying..."
                 ))
                 continue
-            } catch (e: Exception) {
-                onAction(LasikAction.MessageDialog(
-                    color = Warning,
-                    icon = Icons.Filled.RestartAlt,
-                    message = "Error Loading Web, Retrying..."
-                ))
-                continue
             }
         }
 
-        scope.launch {
-            for (rawString in state.rawList) {
-                while (true) {
-                    try {
-                        val safeNik = quoteSafeString(rawString.nikNumber)
-                        val nikElement = """
-                        (function() {
-                            var nikInput = document.querySelector('input[placeholder="Isi Nomor E-KTP"]');
-                            if (nikInput) {
-                                nikInput.value = '$safeNik';
-                                nikInput.dispatchEvent(new Event('input', { bubbles: true }));
-                                nikInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                return true;
-                            }
-                            return false;
-                        })();
-                        """.trimIndent()
-                        webViewNavigator.awaitJavaScript(nikElement)
-
-                        val safeKpj = quoteSafeString(rawString.kpjNumber)
-                        val kpjElement = """
-                        (function() {
-                            var kpjInput = document.querySelector('input[placeholder="Isi Nomor KPJ"]');
-                            if (kpjInput) {
-                                kpjInput.value = '$safeKpj';
-                                kpjInput.dispatchEvent(new Event('input', { bubbles: true }));
-                                kpjInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                return true;
-                            }
-                            return false;
-                        })();
-                        """.trimIndent()
-                        webViewNavigator.awaitJavaScript(kpjElement)
-
-                        val safeName = quoteSafeString(rawString.fullName)
-                        onAction(LasikAction.Debugging(safeName))
-                        val nameElement = """
-                        (function() {
-                            var namaInput = document.querySelector('input[placeholder="Isi Nama sesuai KTP"]');
-                            if (namaInput) {
-                                namaInput.value = '$safeName';
-                                namaInput.dispatchEvent(new Event('input', { bubbles: true }));
-                                namaInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                return true;
-                            }
-                            return false;
-                        })();
-                        """.trimIndent()
-                        webViewNavigator.awaitJavaScript(nameElement)
-
-                        delay(1000)
-
-                        val btnNextElement = """
-                        Array.from(document.querySelectorAll('div.wizard-buttons button'))
-                        .find(b => b.textContent.trim().includes('BERIKUTNYA'))?.click();
-                        """.trimIndent()
-                        webViewNavigator.awaitJavaScript(btnNextElement)
-
-                        delay(4_000)
-
-                        val resultElement = """
-                        document.querySelector('.swal2-content').innerText;
-                        """.trimIndent()
-                        val resultDetection = webViewNavigator.awaitJavaScript(resultElement)
-
-                        if (resultDetection.contains("JMO", ignoreCase = true)) {
-                            onAction(LasikAction.Debugging("Berhasil"))
-                            onAction(LasikAction.Process)
-                            onAction(LasikAction.Success)
-                        } else {
-                            onAction(LasikAction.Debugging("Gagal"))
-                            onAction(LasikAction.Process)
-                            onAction(LasikAction.Failure)
-                            break
+        for (rawString in state.rawList) {
+            while (true) {
+                try {
+                    val safeNik = quoteSafeString(rawString.nikNumber)
+                    val nikElement = """
+                    (function() {
+                        var nikInput = document.querySelector('input[placeholder="Isi Nomor E-KTP"]');
+                        if (nikInput) {
+                            nikInput.value = '$safeNik';
+                            nikInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            nikInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
                         }
+                        return false;
+                    })();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(nikElement)
 
-                        val result = LasikResult(
-                            kpjNumber = rawString.kpjNumber,
-                            nikNumber = rawString.nikNumber,
-                            fullName = rawString.fullName,
-                            birthDate = rawString.birthDate,
-                            email = rawString.email,
-                            regencyName = rawString.regencyName,
-                            subdistrictName = rawString.subdistrictName,
-                            wardName = rawString.wardName,
-                            lasikResult = "Berhasil"
-                        )
-                        onAction(LasikAction.AddResult(result))
+                    val safeKpj = quoteSafeString(rawString.kpjNumber)
+                    val kpjElement = """
+                    (function() {
+                        var kpjInput = document.querySelector('input[placeholder="Isi Nomor KPJ"]');
+                        if (kpjInput) {
+                            kpjInput.value = '$safeKpj';
+                            kpjInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            kpjInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                        return false;
+                    })();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(kpjElement)
+
+                    val safeName = quoteSafeString(rawString.fullName)
+                    onAction(LasikAction.Debugging(safeName))
+                    val nameElement = """
+                    (function() {
+                        var namaInput = document.querySelector('input[placeholder="Isi Nama sesuai KTP"]');
+                        if (namaInput) {
+                            namaInput.value = '$safeName';
+                            namaInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            namaInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                        return false;
+                    })();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(nameElement)
+
+                    delay(1000)
+
+                    val btnNextElement = """
+                    Array.from(document.querySelectorAll('div.wizard-buttons button'))
+                    .find(b => b.textContent.trim().includes('BERIKUTNYA'))?.click();
+                    """.trimIndent()
+                    webViewNavigator.awaitJavaScript(btnNextElement)
+
+                    delay(4_000)
+
+                    val resultElement = """
+                    document.querySelector('.swal2-content').innerText;
+                    """.trimIndent()
+                    val resultDetection = webViewNavigator.awaitJavaScript(resultElement)
+
+                    if (resultDetection.contains("JMO", ignoreCase = true)) {
+                        onAction(LasikAction.Debugging("Berhasil"))
+                        onAction(LasikAction.Process)
+                        onAction(LasikAction.Success)
+                    } else {
+                        onAction(LasikAction.Debugging("Gagal"))
+                        onAction(LasikAction.Process)
+                        onAction(LasikAction.Failure)
                         break
-                    } catch (e: TimeoutCancellationException) {
-                        onAction(LasikAction.MessageDialog(
-                            color = Warning,
-                            icon = Icons.Filled.RestartAlt,
-                            message = "Timeout !, Retrying..."
-                        ))
-                        continue
-                    } catch (e: Exception) {
-                        onAction(LasikAction.MessageDialog(
-                            color = Warning,
-                            icon = Icons.Filled.RestartAlt,
-                            message = "Error !. Retrying..."
-                        ))
-                        continue
                     }
+
+                    val result = LasikResult(
+                        kpjNumber = rawString.kpjNumber,
+                        nikNumber = rawString.nikNumber,
+                        fullName = rawString.fullName,
+                        birthDate = rawString.birthDate,
+                        email = rawString.email,
+                        regencyName = rawString.regencyName,
+                        subdistrictName = rawString.subdistrictName,
+                        wardName = rawString.wardName,
+                        lasikResult = "Berhasil"
+                    )
+                    onAction(LasikAction.AddResult(result))
+                    break
+                } catch (e: TimeoutCancellationException) {
+                    onAction(LasikAction.MessageDialog(
+                        color = Warning,
+                        icon = Icons.Filled.RestartAlt,
+                        message = "Timeout !, Retrying..."
+                    ))
+                    continue
                 }
             }
-            onAction(LasikAction.IsStarted)
         }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { scope.cancel() }
+        onAction(LasikAction.IsStarted)
     }
 }

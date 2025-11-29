@@ -79,32 +79,32 @@ actual fun DptWebPageExtension(
 
                     val safeNik = quoteSafeString(rawList.nikNumber)
                     val inputNikElement = """
-                        (function() {
-                            const input = document.querySelector('form input[type="text"]');
-                            if (input) {
-                                input.value = '$safeNik';
-                                input.dispatchEvent(new Event('input', {bubbles: true}));
-                                return 'OK';
-                            }
-                            return 'NO_INPUT';
-                        })();
-                        """.trimIndent()
+                    (function() {
+                        const input = document.querySelector('form input[type="text"]');
+                        if (input) {
+                            input.value = '$safeNik';
+                            input.dispatchEvent(new Event('input', {bubbles: true}));
+                            return 'OK';
+                        }
+                        return 'NO_INPUT';
+                    })();
+                    """.trimIndent()
                     advanceWebViewControl.awaitJavaScript(inputNikElement)
 
                     delay(1_000)
 
                     val bypassCaptcha = """
-                        window.grecaptcha = { execute: () => Promise.resolve('token') };
-                        if (typeof findDptb === 'function') findDptb('${rawList.nikNumber}');
-                        """.trimIndent()
+                    window.grecaptcha = { execute: () => Promise.resolve('token') };
+                    if (typeof findDptb === 'function') findDptb('${rawList.nikNumber}');
+                    """.trimIndent()
                     advanceWebViewControl.awaitJavaScript(bypassCaptcha)
 
                     delay(1_000)
 
                     val elementFind = """
-                        Array.from(document.querySelectorAll('div.wizard-buttons button'))
-                        .find(b => b.textContent.trim().includes('Pencarian'))?.click();
-                        """.trimIndent()
+                    Array.from(document.querySelectorAll('div.wizard-buttons button'))
+                    .find(b => b.textContent.trim().includes('Pencarian'))?.click();
+                    """.trimIndent()
                     advanceWebViewControl.awaitJavaScript(elementFind)
 
                     advanceWebViewControl.waitWebToLoad(isLoading)
@@ -124,14 +124,14 @@ actual fun DptWebPageExtension(
                     }
 
                     val fullNameElement = """
-                        (function() {
-                            const allElements = document.querySelectorAll('*');
-                            const labelElement = Array.from(allElements).find(el => el.textContent.trim() === 'Nama Pemilih');
-                            const parentElement = labelElement.parentElement;
-                            
-                            return parentElement.innerText?.trim();
-                        })();
-                        """.trimIndent()
+                    (function() {
+                        const allElements = document.querySelectorAll('*');
+                        const labelElement = Array.from(allElements).find(el => el.textContent.trim() === 'Nama Pemilih');
+                        const parentElement = labelElement.parentElement;
+                        
+                        return parentElement.innerText?.trim();
+                    })();
+                    """.trimIndent()
                     val fullNameResult = advanceWebViewControl.awaitJavaScript(fullNameElement)
                     val removedQuoteFullName = removeDoubleQuote(fullNameResult)
                     val filteredFullName = getFullName(removedQuoteFullName)
@@ -172,14 +172,6 @@ actual fun DptWebPageExtension(
                         color = Warning,
                         icon = Icons.Filled.RestartAlt,
                         message = "Timeout !, Retrying..."
-                    ))
-                    continue
-                } catch (e: Exception) {
-                    onAction(DptAction.JsResult(e.message.toString()))
-                    onAction(DptAction.MessageDialog(
-                        color = Warning,
-                        icon = Icons.Filled.RestartAlt,
-                        message = "Error !. Retrying..."
                     ))
                     continue
                 }
