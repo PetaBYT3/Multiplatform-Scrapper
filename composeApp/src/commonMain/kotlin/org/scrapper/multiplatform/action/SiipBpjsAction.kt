@@ -37,6 +37,8 @@ sealed interface SiipBpjsAction {
 
     data object GetYmail: SiipBpjsAction
 
+    data object QuickMode: SiipBpjsAction
+
     data object SettingsBottomSheet: SiipBpjsAction
 
     data class Debugging(val message: String): SiipBpjsAction

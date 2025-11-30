@@ -176,16 +176,32 @@ fun SiipBpjsPage(
         CustomBottomSheetMessageComposable(
             title = "Settings",
             content = {
-                Row(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxWidth()
                 ) {
-                    Checkbox(
-                        checked = state.getGmail,
-                        onCheckedChange = { onAction(SiipBpjsAction.GetGmail) }
-                    )
-                    CustomTextContent(text = "Get Gmail ( @gmail.com )")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = state.quickMode,
+                            onCheckedChange = { onAction(SiipBpjsAction.QuickMode) }
+                        )
+                        CustomTextContent(text = "Enabled Quick Mode ( Without Delay )")
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = state.getGmail,
+                            onCheckedChange = { onAction(SiipBpjsAction.GetGmail) }
+                        )
+                        CustomTextContent(text = "Get Gmail ( @gmail.com )")
+                    }
                 }
             },
             onDismiss = { onAction(SiipBpjsAction.SettingsBottomSheet) }
@@ -583,14 +599,14 @@ private fun AutoCheck(
                     webViewNavigator.evaluateJavaScript(doneButton)
                     onAction(SiipBpjsAction.Debugging("Klik Tombol Sudah"))
 
-                    delay(500)
+                    if (!state.quickMode) delay(500)
 
                     val quoteSafeKpj = quoteSafeString(rawString)
                     val kpjTextField = "document.querySelector('input[placeholder=\"Input No KPJ\"]').value = '$quoteSafeKpj';"
                     webViewNavigator.evaluateJavaScript(kpjTextField)
                     onAction(SiipBpjsAction.Debugging("Input KPJ"))
 
-                    delay(500)
+                    if (!state.quickMode) delay(500)
 
                     val btnNext = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Lanjut'))?.click();"
                     webViewNavigator.evaluateJavaScript(btnNext)
@@ -619,7 +635,7 @@ private fun AutoCheck(
                     val successDetection = "document.querySelector('.swal2-title').textContent;"
                     val successResult = webViewNavigator.awaitJavaScript(successDetection)
 
-                    delay(10_000)
+                    if (!state.quickMode) delay(10_000)
 
                     if (successResult.contains("Opps! Gagal", ignoreCase = true)) {
                         onAction(SiipBpjsAction.Failure)

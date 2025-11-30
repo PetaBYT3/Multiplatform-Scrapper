@@ -26,6 +26,12 @@ class SiipBpjsViewModel(
                 _state.update { it.copy(getGmail = isActive) }
             }
         }
+
+        viewModelScope.launch {
+            settingsRepository.getQuickMode().collect { isActive ->
+                _state.update { it.copy(quickMode = isActive) }
+            }
+        }
     }
 
     fun onAction(action: SiipBpjsAction) {
@@ -122,6 +128,11 @@ class SiipBpjsViewModel(
             }
             is SiipBpjsAction.Debugging -> {
                 _state.update { it.copy(debugging = action.message) }
+            }
+            SiipBpjsAction.QuickMode -> {
+                viewModelScope.launch {
+                    settingsRepository.setQuickMode(!_state.value.quickMode)
+                }
             }
         }
     }

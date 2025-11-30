@@ -37,4 +37,14 @@ class SettingsRepository(
     fun setYmailOption(newYmailOption: Boolean) {
         observableSettings.putBoolean(getYmail, newYmailOption)
     }
+
+    private val quickMode = "quickMode"
+
+    fun getQuickMode(): Flow<Boolean> {
+        return observableSettings.getBooleanFlow(quickMode, false)
+    }
+
+    fun setQuickMode(newQuickMode: Boolean) {
+        observableSettings.putBoolean(quickMode, newQuickMode)
+    }
 }

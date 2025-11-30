@@ -41,6 +41,7 @@ data class SiipBpjsState(
 
     val getGmail: Boolean = true,
     val getYmail: Boolean = true,
+    val quickMode: Boolean = false,
 
     val settingsBottomSheet: Boolean = false,
 
